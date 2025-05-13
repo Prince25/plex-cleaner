@@ -7,6 +7,7 @@ from plexapi.server import PlexServer
 
 # Load configuration from YAML file
 def load_config(path="config.yaml"):
+    """Load configuration from YAML file and check for default values."""
     try:
         with open(path, "r") as f:
             config = yaml.safe_load(f)
@@ -16,6 +17,24 @@ def load_config(path="config.yaml"):
     except yaml.YAMLError as e:
         print(f"Error: Invalid YAML in config file: {e}")
         sys.exit(1)
+
+    # Check if user has edited the example token
+    if config.get("PLEX_TOKEN") == "your-plex-token":
+        print(f"Warning: Default Plex token detected in config file.")
+        print(f"Please edit {path} with your actual Plex server details")
+        print("Waiting for config to be updated... (checking every 60 seconds)")
+
+        # Wait for user to edit the config
+        while config.get("PLEX_TOKEN") == "your-plex-token":
+            time.sleep(60)
+            try:
+                with open(path, "r") as f:
+                    config = yaml.safe_load(f)
+            except Exception:
+                # Just try again if there's any error (e.g. file is being edited)
+                continue
+
+        print("Config updated! Continuing with script...")
 
     # Validate required keys
     required_keys = ["PLEX_BASEURL", "PLEX_TOKEN", "LIBRARIES"]
@@ -35,6 +54,15 @@ def load_config(path="config.yaml"):
     for key in ["DELETE_COLLECTIONS", "DELETE_PLAYLISTS"]:
         if key in config and not isinstance(config[key], bool):
             print(f"Error: '{key}' must be a boolean (true/false) in config file.")
+            sys.exit(1)
+
+    # Validate INTERVAL_HOURS is a positive number if present
+    if "INTERVAL_HOURS" in config:
+        try:
+            if float(config["INTERVAL_HOURS"]) <= 0:
+                raise ValueError()
+        except Exception:
+            print("Error: 'INTERVAL_HOURS' must be a positive number in config file.")
             sys.exit(1)
 
     return config
@@ -82,6 +110,25 @@ def delete_empty_playlists(plex):
             )
 
 
+# Top-level cleanup function now handles reloading config and deleting items
+def run_cleanup():
+    config = load_config()
+    try:
+        plex = connect_plex(config["PLEX_BASEURL"], config["PLEX_TOKEN"])
+    except Exception as e:
+        print(f"Error: Could not connect to Plex server: {e}")
+        return
+    try:
+        if config.get("DELETE_COLLECTIONS", True):
+            for lib_type in ["movies", "shows"]:
+                libs = config.get("LIBRARIES", {}).get(lib_type, [])
+                delete_empty_collections(plex, libs)
+        if config.get("DELETE_PLAYLISTS", True):
+            delete_empty_playlists(plex)
+    except Exception as e:
+        print(f"Unexpected error during cleanup: {e}")
+
+
 # Main entry point for the script
 def main(args=None):
     parser = argparse.ArgumentParser(
@@ -92,53 +139,29 @@ def main(args=None):
     )
     opts = parser.parse_args(args)
 
-    # Load config and connect to Plex
-    config = load_config()
-    try:
-        plex = connect_plex(config["PLEX_BASEURL"], config["PLEX_TOKEN"])
-    except Exception as e:
-        print(f"Error: Could not connect to Plex server: {e}")
-        print("Please check your base URL and token in the config file.")
-        sys.exit(1)
-
-    # Validate INTERVAL_HOURS
-    try:
-        interval_hours = float(config.get("INTERVAL_HOURS", 1))
-        if interval_hours <= 0:
-            raise ValueError()
-    except Exception:
-        print(
-            "Warning: INTERVAL_HOURS must be a positive number, defaulting to 1 hour."
-        )
-        interval_hours = 1
-
-    # Cleanup logic for collections and playlists
-    def run_cleanup():
-        try:
-            if config.get("DELETE_COLLECTIONS", True):
-                for lib_type in ["movies", "shows"]:
-                    libs = config.get("LIBRARIES", {}).get(lib_type, [])
-                    delete_empty_collections(plex, libs)
-            if config.get("DELETE_PLAYLISTS", True):
-                delete_empty_playlists(plex)
-        except Exception as e:
-            print(f"Unexpected error during cleanup: {e}")
-
     # Run once or interval mode
     if opts.once:
         run_cleanup()
         print("Cleanup complete. Exiting.")
     else:
+        # Initial read to get starting interval
+        config = load_config()
+        interval_hours = float(config.get("INTERVAL_HOURS", 24))
         print(
-            f"Interval mode enabled. Will run cleanup every {interval_hours} hour(s). Waiting for the first interval..."
+            f"Interval mode enabled. Will run cleanup every {interval_hours} hour(s)..."
         )
+
         try:
+            # Main loop - run first, then wait each time
             while True:
-                time.sleep(interval_hours * 3600)
                 run_cleanup()
                 print(
-                    f"Cleanup complete. Waiting {interval_hours} hour(s) for next run..."
+                    f"Cleanup complete. Waiting {interval_hours} hour(s) for next run...\n"
                 )
+                time.sleep(interval_hours * 3600)
+                # Reload config to get the latest interval
+                config = load_config()
+                interval_hours = float(config.get("INTERVAL_HOURS", 24))
         except KeyboardInterrupt:
             print("Interrupted by user. Exiting.")
 
