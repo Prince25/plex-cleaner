@@ -6,7 +6,7 @@ from plexapi.server import PlexServer
 
 
 # Load configuration from YAML file
-def load_config(path="config.yaml"):
+def load_config(path="config/config.yaml"):
     """Load configuration from YAML file and check for default values."""
     try:
         with open(path, "r") as f:

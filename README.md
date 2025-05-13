@@ -23,16 +23,16 @@ A simple Python utility to automatically delete empty collections and playlists 
 
 #### Option 1: Basic Docker
 
-1. Build the image:
+1. Pull the image:
 
    ```bash
-   docker build -t plex-cleaner .
+   docker pull ghcr.io/prince25/plex-cleaner:main
    ```
 
-2. Run the container (mount your config file):
+2. Run the container (mount a folder to edit the config file):
 
    ```bash
-   docker run -v $(pwd)/config.yaml:/app/config.yaml plex-cleaner
+   docker run -v ./plex-cleaner:/plex-cleaner/config ghcr.io/prince25/plex-cleaner:main
    ```
 
 #### Option 2: Docker Compose (recommended)
@@ -43,11 +43,13 @@ A simple Python utility to automatically delete empty collections and playlists 
    version: "3"
    services:
      plex-cleaner:
-       image: plex-cleaner:latest
+       image: ghcr.io/prince25/plex-cleaner:main
        container_name: plex-cleaner
        restart: unless-stopped
+       depends_on:
+         - plex
        volumes:
-         - ./config.yaml:/app/config.yaml
+         - ./plex-cleaner:/plex-cleaner/config
    ```
 
 2. Run with Docker Compose:
