@@ -6,13 +6,30 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish the image'
+        required: true
+        type: boolean
 
 jobs:
   build-and-push:
+    permissions: write-all
+
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: prince25/plex-cleaner
+      DOCKERHUB_REGISTRY: docker.io
+      DOCKERHUB_IMAGE: princes25/plex-cleaner
+    
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
@@ -28,20 +45,34 @@ jobs:
           username: princes25
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push to GHCR
-        uses: docker/build-push-action@v4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
         with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/Prince25/plex-cleaner:latest
-            ghcr.io/Prince25/plex-cleaner:${{ github.sha }}
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ env.DOCKERHUB_REGISTRY }}/${{ env.DOCKERHUB_IMAGE }}
 
-      - name: Build and push to Docker Hub
+      - name: Build and push Docker images
+        id: build-push
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: |
-            princes25/plex-cleaner:latest
-            princes25/plex-cleaner:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Update Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: princes25
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_IMAGE }}
+          short-description: "A tool that automatically deletes empty collections and playlists from your Plex server"
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          push-to-registry: true
