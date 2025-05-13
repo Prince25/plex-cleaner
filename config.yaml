@@ -1,0 +1,15 @@
+# Plex server connection
+PLEX_BASEURL: "http://your-plex-server:32400"
+PLEX_TOKEN: "your-plex-token"
+
+# Libraries to check (names as in Plex, separated by commas)
+LIBRARIES:
+  movies: ["Movies", "4K Movies"]
+  shows: ["TV Shows"]
+
+# What to delete, false to disable
+DELETE_COLLECTIONS: true
+DELETE_PLAYLISTS: true
+
+# Interval in hours
+INTERVAL_HOURS: 1
