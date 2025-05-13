@@ -60,7 +60,9 @@ A simple Python utility to automatically delete empty collections and playlists 
 
 ## Configuration
 
-Edit the `config.yaml` file with your Plex server details and preferences:
+You need to create a `config.yaml` file in the `/config` directory with your Plex server details and preferences. For convenience, you can edit the example `config.yaml` in the project root and place it in the `/config` directory.
+
+Use this template:
 
 ```yaml
 PLEX_BASEURL: "http://your-plex-server:32400"
@@ -72,6 +74,8 @@ DELETE_COLLECTIONS: true
 DELETE_PLAYLISTS: true
 INTERVAL_HOURS: 24
 ```
+
+The application will wait until this file is created and properly configured before proceeding.
 
 ### Finding your Plex token
 
@@ -96,10 +100,10 @@ python main.py
 
 ### How It Works in Docker
 
-1. The container starts with a default `config.yaml` file
-2. If the default Plex token is detected, the script will pause and wait
-3. You can edit the mounted `config.yaml` file with your real settings
-4. The script checks every 60 seconds for changes and continues when a valid token is found
+1. The container starts and creates the `config` directory if it doesn't exist
+2. You need to create and place the `config.yaml` file in the mounted config directory (you can copy and edit the example file from the project root)
+3. If you use the default Plex token, the script will pause and wait for your edit
+4. The script checks every 30 seconds for the config file or for changes when a default token is found
 5. Changes to interval hours or other settings are picked up automatically between runs
 
 The container will automatically clean up empty collections and playlists based on your configuration.

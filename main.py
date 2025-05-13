@@ -2,39 +2,66 @@ import time
 import argparse
 import yaml
 import sys
+import os
 from plexapi.server import PlexServer
 
 
 # Load configuration from YAML file
 def load_config(path="config/config.yaml"):
     """Load configuration from YAML file and check for default values."""
-    try:
-        with open(path, "r") as f:
-            config = yaml.safe_load(f)
-    except FileNotFoundError:
-        print(f"Error: Config file not found at '{path}'")
-        sys.exit(1)
-    except yaml.YAMLError as e:
-        print(f"Error: Invalid YAML in config file: {e}")
-        sys.exit(1)
 
-    # Check if user has edited the example token
-    if config.get("PLEX_TOKEN") == "your-plex-token":
-        print(f"Warning: Default Plex token detected in config file.")
-        print(f"Please edit {path} with your actual Plex server details")
-        print("Waiting for config to be updated... (checking every 60 seconds)")
+    # Make sure config directory exists
+    config_dir = os.path.dirname(path)
+    if not os.path.exists(config_dir):
+        try:
+            print(f"Creating config directory at: {config_dir}")
+            os.makedirs(config_dir, exist_ok=True)
+        except Exception as e:
+            print(f"Error creating config directory: {e}")
 
-        # Wait for user to edit the config
-        while config.get("PLEX_TOKEN") == "your-plex-token":
-            time.sleep(60)
-            try:
-                with open(path, "r") as f:
-                    config = yaml.safe_load(f)
-            except Exception:
-                # Just try again if there's any error (e.g. file is being edited)
-                continue
+    # Keep checking for config file existence and proper configuration
+    while True:
+        try:
+            with open(path, "r") as f:
+                config = yaml.safe_load(f)
 
-        print("Config updated! Continuing with script...")
+            # If we got here, the file exists, but check if token has been updated
+            if config.get("PLEX_TOKEN") == "your-plex-token":
+                print(f"Warning: Default Plex token detected in config file.")
+                print(f"Please edit {path} with your actual Plex server details")
+                print(
+                    "Waiting for config to be updated... (checking every 30 seconds)\n"
+                )
+                time.sleep(30)
+                continue  # Try again after waiting
+
+            # If we got here, file exists and token is not default
+            break
+
+        except FileNotFoundError:
+            print(f"Error: Config file not found at '{path}'")
+            print(f"Please create {path} with your Plex server details")
+            print(
+                "Waiting for config file to be created... (checking every 30 seconds)\n"
+            )
+            time.sleep(30)
+            continue  # Try again after waiting
+
+        except yaml.YAMLError as e:
+            print(f"Error: Invalid YAML in config file: {e}")
+            print("Please fix the YAML syntax in your config file")
+            print("Waiting for config to be fixed... (checking every 30 seconds)\n")
+            time.sleep(30)
+            continue  # Try again after waiting
+
+        except Exception as e:
+            # Just try again if there's any error (e.g. file is being edited)
+            print(f"Error reading config: {e}")
+            print("Waiting for config to be available... (checking every 30 seconds)\n")
+            time.sleep(30)
+            continue  # Try again after waiting
+
+    print("Valid config found! Continuing with script...")
 
     # Validate required keys
     required_keys = ["PLEX_BASEURL", "PLEX_TOKEN", "LIBRARIES"]
