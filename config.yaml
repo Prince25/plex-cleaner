@@ -13,10 +13,10 @@ DELETE_PLAYLISTS: true
 
 # Collections and playlists to ignore (not delete)
 IGNORE_COLLECTIONS:
-  movies: []
-  shows: []
+  movies: [""]
+  shows: [""]
 
-IGNORE_PLAYLISTS: []
+IGNORE_PLAYLISTS: [""]
 
 # Interval in hours
 INTERVAL_HOURS: 24
