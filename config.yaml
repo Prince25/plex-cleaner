@@ -11,5 +11,12 @@ LIBRARIES:
 DELETE_COLLECTIONS: true
 DELETE_PLAYLISTS: true
 
+# Collections and playlists to ignore (not delete)
+IGNORE_COLLECTIONS:
+  movies: [""]
+  shows: [""]
+
+IGNORE_PLAYLISTS: [""]
+
 # Interval in hours
 INTERVAL_HOURS: 24

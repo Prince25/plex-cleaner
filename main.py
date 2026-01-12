@@ -92,6 +92,19 @@ def load_config(path="config/config.yaml"):
             print("Error: 'INTERVAL_HOURS' must be a positive number in config file.")
             sys.exit(1)
 
+    # Validate IGNORE_COLLECTIONS and IGNORE_PLAYLISTS are dict of lists if present
+    if "IGNORE_COLLECTIONS" in config:
+        if not isinstance(config["IGNORE_COLLECTIONS"], dict) or not all(
+            isinstance(v, list) for v in config["IGNORE_COLLECTIONS"].values()
+        ):
+            print("Error: 'IGNORE_COLLECTIONS' must be a dictionary of lists in config file.")
+            sys.exit(1)
+    
+    if "IGNORE_PLAYLISTS" in config:
+        if not isinstance(config["IGNORE_PLAYLISTS"], list):
+            print("Error: 'IGNORE_PLAYLISTS' must be a list in config file.")
+            sys.exit(1)
+
     return config
 
 
@@ -101,7 +114,7 @@ def connect_plex(baseurl, token):
 
 
 # Delete empty collections in specified libraries
-def delete_empty_collections(plex, libraries):
+def delete_empty_collections(plex, libraries, ignore_collections):
     for lib_name in libraries:
         try:
             section = plex.library.section(lib_name)
@@ -110,6 +123,10 @@ def delete_empty_collections(plex, libraries):
             continue
         for collection in section.collections():
             try:
+                # Skip if collection is in ignore list
+                if collection.title in ignore_collections:
+                    print(f"Skipping ignored collection: {collection.title}")
+                    continue
                 if not collection.items():
                     print(f"Deleting empty collection: {collection.title}")
                     collection.delete()
@@ -120,7 +137,7 @@ def delete_empty_collections(plex, libraries):
 
 
 # Delete empty playlists from Plex server
-def delete_empty_playlists(plex):
+def delete_empty_playlists(plex, ignore_playlists):
     try:
         playlists = plex.playlists()
     except Exception as e:
@@ -128,6 +145,10 @@ def delete_empty_playlists(plex):
         return
     for playlist in playlists:
         try:
+            # Skip if playlist is in ignore list
+            if playlist.title in ignore_playlists:
+                print(f"Skipping ignored playlist: {playlist.title}")
+                continue
             if not playlist.items():
                 print(f"Deleting empty playlist: {playlist.title}")
                 playlist.delete()
@@ -147,11 +168,14 @@ def run_cleanup():
         return
     try:
         if config.get("DELETE_COLLECTIONS", True):
+            ignore_collections_config = config.get("IGNORE_COLLECTIONS", {})
             for lib_type in ["movies", "shows"]:
                 libs = config.get("LIBRARIES", {}).get(lib_type, [])
-                delete_empty_collections(plex, libs)
+                ignore_list = ignore_collections_config.get(lib_type, [])
+                delete_empty_collections(plex, libs, ignore_list)
         if config.get("DELETE_PLAYLISTS", True):
-            delete_empty_playlists(plex)
+            ignore_playlists = config.get("IGNORE_PLAYLISTS", [])
+            delete_empty_playlists(plex, ignore_playlists)
     except Exception as e:
         print(f"Unexpected error during cleanup: {e}")
 

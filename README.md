@@ -72,6 +72,10 @@ LIBRARIES:
   shows: ["TV Shows"]
 DELETE_COLLECTIONS: true
 DELETE_PLAYLISTS: true
+IGNORE_COLLECTIONS:
+  movies: [""]
+  shows: [""]
+IGNORE_PLAYLISTS: [""]
 INTERVAL_HOURS: 24
 ```
 
@@ -98,7 +102,7 @@ python main.py --once
 python main.py
 ```
 
-### How It Works in Docker
+### How It Works
 
 1. The container starts and creates the `config` directory if it doesn't exist
 2. You need to create and place the `config.yaml` file in the mounted config directory (you can copy and edit the example file from the project root)
